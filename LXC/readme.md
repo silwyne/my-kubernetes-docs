@@ -141,3 +141,21 @@ else
   exit 0
 fi
 ```
+
+## Set Static IPv4
+each time you reboot the lxc container it gets a new ipv4 if not set statically.
+to avoid that set a static ipv4 here `10.0.3.92`:
+```bash
+# enter the container
+sudo lxc-attach -n <container>
+
+# set static ipv4
+sudo cat > /etc/systemd/network/eth0.network << EOF
+[Match]
+Name=eth0
+
+[Network]
+Address=10.0.3.92/24
+Gateway=10.0.3.1
+EOF
+```
