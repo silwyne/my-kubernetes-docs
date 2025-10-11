@@ -1,0 +1,22 @@
+{{- range $nodeName, $_ := .Values.machines }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Values.clickhouse.appName }}-{{ $nodeName }}-headless
+  labels:
+    app: {{ $.Values.clickhouse.appName }}
+    instance: {{ $nodeName }}
+spec:
+  clusterIP: None
+  selector:
+    app: {{ $.Values.clickhouse.appName }}
+    instance: {{ $nodeName }}
+  ports:
+    {{- range $_, $port := $.Values.clickhouse.ports }}
+    - name: tcp-{{ $port }}
+      port: {{ $port }}
+      targetPort: {{ $port }}
+      protocol: TCP
+    {{- end }}
+---
+{{- end }}

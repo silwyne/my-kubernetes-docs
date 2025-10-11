@@ -1,0 +1,136 @@
+{{- range $nodeName, $content := .Values.machines }}
+{{- if $content.enabled }}
+{{- if $content.clickhouse.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $.Values.clickhouse.appName }}-{{ $nodeName }}
+  labels:
+    app: {{ $.Values.clickhouse.appName }}
+    instance: {{ $nodeName }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $.Values.clickhouse.appName }}
+      instance: {{ $nodeName }}
+  {{- if eq $content.clickhouse.type "central" }}
+  serviceName: {{ $.Values.clickhouse.centralHostName }}
+  {{- else if eq $content.clickhouse.type "site" }}
+  serviceName: {{ $.Values.clickhouse.appName }}-{{ $nodeName }}-headless
+  {{- end }}
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: {{ $content.clickhouse.persistence.storageClass }}
+        resources:
+          requests:
+            storage: {{ $content.clickhouse.persistence.size }}
+  template:
+    metadata:
+      labels:
+        app: {{ $.Values.clickhouse.appName }}
+        instance: {{ $nodeName }}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  {{- range $key, $value := $content.nodeSelector }}
+                  - key: {{ $key }}
+                    operator: In
+                    values:
+                      - {{ $value }}
+                  {{- end }}
+      terminationGracePeriodSeconds: {{ $.Values.clickhouse.terminationGracePeriodSeconds }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ $.Values.clickhouse.configMap.name }}
+        - name: init-scripts
+          configMap:
+          {{- if eq $content.clickhouse.type "central" }}
+            name: {{ $.Values.clickhouse.configMap.centralInitScripts }}
+          {{- else if eq $content.clickhouse.type "site" }}
+            name: {{ $.Values.clickhouse.configMap.siteInitScripts }}
+          {{- end }}
+      containers:
+        - name: {{ $.Values.clickhouse.appName }}
+          image: {{ $.Values.clickhouse.image.name }}
+          imagePullPolicy: {{ $.Values.clickhouse.image.pullPolicy }}
+          env:
+            {{- range $key, $value := $.Values.clickhouse.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            {{- range $_, $port := $.Values.clickhouse.ports }}
+            - containerPort: {{ $port }}
+            {{- end }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - |
+                    clickhouse-client --query "SYSTEM STOP MERGES" || true
+                    clickhouse-client --query "SYSTEM STOP MOVES" || true
+                    clickhouse-client --query "SYSTEM FLUSH LOGS" || true
+                    sleep 5
+          volumeMounts:
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+            - name: config
+              mountPath: /etc/timezone
+              subPath: timezone
+            - name: data
+              mountPath: /var/lib/clickhouse
+            - name: config
+              mountPath: /etc/clickhouse-server/users.d/users.xml
+              subPath: grant_all.xml
+            - name: config
+              mountPath: /etc/clickhouse-server/config.d/network-and-logging.xml
+              subPath: {{ $nodeName }}-network-and-logging.xml
+            - name: config
+              mountPath: /etc/clickhouse-server/config.d/macros.xml
+              subPath: macros.xml
+            - name: config
+              mountPath: /etc/clickhouse-server/config.xml
+              subPath: config.xml
+          {{- if eq $content.clickhouse.type "central" }}
+            - name: config
+              mountPath: /etc/clickhouse-server/config.d/central-remote-server.xml
+              subPath: central-remote-server.xml
+          {{- else if eq $content.clickhouse.type "site" }}
+            - name: config
+              mountPath: /etc/clickhouse-server/config.d/site-remote-server.xml
+              subPath: site-remote-server.xml
+          {{- end }}
+          resources:
+            requests:
+              cpu: {{ $content.clickhouse.resources.requests.cpu }}
+              memory: {{ $content.clickhouse.resources.requests.memory }}
+            limits:
+              cpu: {{ $content.clickhouse.resources.limits.cpu }}
+              memory: {{ $content.clickhouse.resources.limits.memory }}
+          readinessProbe:
+            failureThreshold: 3
+            exec:
+              command:
+              - sh
+              - -c
+              - wget -qO- localhost:8123/ping
+            initialDelaySeconds: 10
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+{{- end }}
+{{- end }}
+---
+{{- end }}

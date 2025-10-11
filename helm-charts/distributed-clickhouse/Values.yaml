@@ -1,0 +1,96 @@
+timezone: Asia/Tehran
+
+clickhouse:
+  appName: clickhouse
+  centralHostName: central-clickhouse
+  rootUserName: admin
+  rootPassword: admin
+  image:
+    name: clickhouse/clickhouse-server:24.10.1.2812
+    pullPolicy: IfNotPresent
+  replicas: 1
+  appName: clickhouse
+  ports:
+    - 8123
+    - 9000
+    - 9009
+  env:
+    PASSWORD: admin
+  configMap:
+    name: clickhouse-xml-files
+    siteInitScripts: site-init-scripts
+    centralInitScripts: central-init-scripts
+  terminationGracePeriodSeconds: 30
+
+machines:
+  central:
+    enabled: true
+    nodeSelector:
+      kubernetes.io/hostname: debian
+    clickhouse:
+      enabled: true
+      type: central
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 1
+          memory: 2Gi
+      persistence:
+          size: 10Gi
+          storageClass: local-path
+
+  container1:
+    enabled: true
+    nodeSelector:
+      kubernetes.io/hostname: container1
+    clickhouse:
+      enabled: true
+      type: site
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 1
+          memory: 2Gi
+      persistence:
+          size: 10Gi
+          storageClass: local-path
+  
+  container2:
+    enabled: true
+    nodeSelector:
+      kubernetes.io/hostname: container2
+    clickhouse:
+      enabled: true
+      type: site
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 1
+          memory: 2Gi
+      persistence:
+          size: 10Gi
+          storageClass: local-path
+
+  container3:
+    enabled: true
+    nodeSelector:
+      kubernetes.io/hostname: container3
+    clickhouse:
+      enabled: true
+      type: site
+      resources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+        limits:
+          cpu: 1
+          memory: 2Gi
+      persistence:
+          size: 10Gi
+          storageClass: local-path

@@ -1,0 +1,4 @@
+name: distributed-clickhouse
+description: Chocolate is sweet for clickhouse darling.
+apiVersion: v1
+version: 0.1.0
