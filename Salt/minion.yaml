@@ -1,0 +1,17 @@
+services:
+  salt-minion:
+    image: ${DOCKER_REGISTERY}/saltstack/salt:3006.4
+    container_name: salt-minion
+    ports:
+      - "5505:4505"
+      - "5506:4506"
+    environment:
+      - SALT_MASTER=${SALT_MASTER}
+      - SALT_MINION_ID=${SALT_MINION_ID}
+    entrypoint: /minion-entrypoint.sh
+    volumes:
+      - ./minion/etc:/etc/salt
+      - ./minion/keys:/var/run/salt/minion
+      - ./minion-entrypoint.sh:/minion-entrypoint.sh
+    restart: unless-stopped
+    env_file: .env
